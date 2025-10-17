@@ -1,0 +1,11 @@
+employee_id,name,role,skills
+101,Anjali Sharma,Senior Software Engineer,"Python,Java,AWS,Docker,SQL"
+102,Rohan Verma,Frontend Developer,"JavaScript,React,HTML,CSS,UI/UX"
+103,Priya Patel,Data Scientist,"Python,R,Machine Learning,TensorFlow,Pandas"
+104,Amit Singh,Cloud Architect,"AWS,Azure,GCP,Kubernetes,Terraform"
+105,Sneha Rao,Project Manager,"Agile,Scrum,Jira,Project Planning,Communication"
+106,Vikram Reddy,Backend Developer,"Java,Spring Boot,Microservices,Kafka,SQL"
+107,Meera Desai,QA Engineer,"Selenium,JMeter,Automated Testing,CI/CD,SQL"
+108,Karan Gupta,DevOps Engineer,"Docker,Kubernetes,Jenkins,Ansible,Python"
+109,Pooja Mehta,Business Analyst,"SQL,Tableau,Requirements Gathering,Communication,Jira"
+110,Arjun Kumar,Mobile Developer,"Android,iOS,React Native,Kotlin,Swift"

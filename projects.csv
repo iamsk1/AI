@@ -1,0 +1,5 @@
+project_id,project_name,required_skills
+P01,Project Phoenix,"Python,AWS,Docker,SQL"
+P02,Project Nova,"JavaScript,React,UI/UX,CSS"
+P03,Project Titan,"Java,Spring Boot,Microservices,Kafka"
+P04,Project Orion,"Machine Learning,Python,TensorFlow,Pandas"
