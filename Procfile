@@ -1,2 +1,2 @@
-web: gunicorn matching_prototype:app
+web: gunicorn app:app
 
