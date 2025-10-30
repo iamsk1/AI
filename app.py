@@ -74,8 +74,7 @@ def find_best_matches(project_id, top_n=3):
             "role": row["role"],
             "skills": row["skills"],
             "match_score": match_score,
-            "skill_overlap": skill_overlap,
-            "estimated_savings": round(random.uniform(1.5, 3.5), 1)  # Lakhs saved per match
+            "skill_overlap": skill_overlap
         })
 
     return {
@@ -119,14 +118,11 @@ def run_demo_matching():
                 "project_name": project["project_name"],
                 "employee_name": top_match["name"],
                 "match_score": top_match["match_score"],
-                "savings": top_match["estimated_savings"],
                 "time": round(random.uniform(2.5, 4.0), 1)
             })
     
-    total_savings = sum([r["savings"] for r in demo_results])
     return {
         "matches": demo_results,
-        "total_savings": round(total_savings, 1),
         "total_time": round(sum([r["time"] for r in demo_results]), 1)
     }
 
@@ -200,10 +196,20 @@ HOME_PAGE = """
             padding: 25px;
             border-radius: 10px;
             text-align: center;
-            transition: transform 0.3s;
+            transition: transform 0.3s, box-shadow 0.3s;
         }
         .stat-card:hover {
             transform: translateY(-5px);
+            box-shadow: 0 0 30px rgba(102, 126, 234, 0.6);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 30px rgba(102, 126, 234, 0.6);
+            }
+            50% {
+                box-shadow: 0 0 50px rgba(102, 126, 234, 0.9);
+            }
         }
         .stat-value {
             font-size: 2.5em;
@@ -281,13 +287,7 @@ HOME_PAGE = """
         .demo-match-info {
             flex: 1;
         }
-        .demo-match-savings {
-            background: #28a745;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 5px;
-            font-weight: bold;
-        }
+
         .total-savings-counter {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
@@ -327,7 +327,7 @@ HOME_PAGE = """
         }
         .project-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3), 0 0 40px rgba(118, 75, 162, 0.7);
         }
         .project-card h3 {
             font-size: 1.5em;
@@ -352,10 +352,11 @@ HOME_PAGE = """
             border-radius: 10px;
             margin-bottom: 20px;
             border-left: 5px solid #667eea;
-            transition: transform 0.3s;
+            transition: transform 0.3s, box-shadow 0.3s;
         }
         .match-card:hover {
             transform: translateX(5px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
         }
         .match-header {
             display: flex;
@@ -373,14 +374,17 @@ HOME_PAGE = """
         .match-score.high {
             background: #28a745;
             color: white;
+            box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
         }
         .match-score.medium {
             background: #ffc107;
             color: #333;
+            box-shadow: 0 0 15px rgba(255, 193, 7, 0.5);
         }
         .match-score.low {
             background: #dc3545;
             color: white;
+            box-shadow: 0 0 15px rgba(220, 53, 69, 0.5);
         }
         .confidence-indicator {
             font-size: 0.9em;
@@ -437,14 +441,7 @@ HOME_PAGE = """
             color: #ffd700;
             font-size: 1.5em;
         }
-        .savings-badge {
-            background: #28a745;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 15px;
-            font-size: 0.9em;
-            font-weight: bold;
-        }
+
         
         .loading {
             text-align: center;
@@ -533,7 +530,7 @@ HOME_PAGE = """
         <div class="demo-mode-section">
             <h2>🎬 Interactive Demo Mode</h2>
             <div class="info-box">
-                <strong>Watch the AI in action!</strong> Click the button below to see 10 rapid matches processed in real-time with live savings calculation.
+                <strong>Watch the AI in action!</strong> Click the button below to see 10 rapid matches processed in real-time with AI confidence scoring.
             </div>
             <button class="demo-button" onclick="runDemoMode()" id="demoButton">
                 ▶️ Run Sample Matching (10 Matches)
@@ -543,7 +540,7 @@ HOME_PAGE = """
                 <h3 style="color: #333; margin-bottom: 15px;">🔄 Processing Matches...</h3>
                 <div id="demoMatchesList"></div>
                 <div class="total-savings-counter" id="totalSavingsCounter" style="display: none;">
-                    Total Savings: ₹<span id="totalSavingsValue">0</span> Lakhs
+                    ✅ All Matches Completed!
                     <div style="font-size: 0.5em; margin-top: 10px;">
                         Processed in <span id="totalTimeValue">0</span> seconds
                     </div>
@@ -607,16 +604,33 @@ HOME_PAGE = """
     </div>
 
     <script>
-        // Load executive summary on page load
+        // Animated counter function
+        function animateCounter(element, target, suffix = '', duration = 2000) {
+            const start = 0;
+            const increment = target / (duration / 16);
+            let current = start;
+            
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    element.textContent = target.toLocaleString() + suffix;
+                    clearInterval(timer);
+                } else {
+                    element.textContent = Math.floor(current).toLocaleString() + suffix;
+                }
+            }, 16);
+        }
+        
+        // Load executive summary on page load with animated counters
         window.onload = function() {
             fetch('/api/executive-summary')
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('totalEmployees').textContent = data.total_employees.toLocaleString();
-                    document.getElementById('projectsMatched').textContent = data.projects_matched.toLocaleString();
-                    document.getElementById('avgMatchTime').textContent = data.avg_match_time + 's';
-                    document.getElementById('clientSatisfaction').textContent = data.client_satisfaction + '%';
-                    document.getElementById('benchReduction').textContent = data.bench_reduction + '%';
+                    animateCounter(document.getElementById('totalEmployees'), data.total_employees);
+                    animateCounter(document.getElementById('projectsMatched'), data.projects_matched);
+                    animateCounter(document.getElementById('avgMatchTime'), data.avg_match_time, 's');
+                    animateCounter(document.getElementById('clientSatisfaction'), data.client_satisfaction, '%');
+                    animateCounter(document.getElementById('benchReduction'), data.bench_reduction, '%');
                 });
         };
 
@@ -637,11 +651,9 @@ HOME_PAGE = """
                 .then(response => response.json())
                 .then(data => {
                     let delay = 0;
-                    let cumulativeSavings = 0;
                     
                     data.matches.forEach((match, index) => {
                         setTimeout(() => {
-                            cumulativeSavings += match.savings;
                             
                             const matchHtml = `
                                 <div class="demo-match-item">
@@ -650,13 +662,11 @@ HOME_PAGE = """
                                         <br>
                                         <small>Match Score: ${match.match_score}% | Time: ${match.time}s</small>
                                     </div>
-                                    <div class="demo-match-savings">₹${match.savings}L saved</div>
                                 </div>
                             `;
                             matchesList.innerHTML += matchHtml;
                             
-                            // Update cumulative savings
-                            document.getElementById('totalSavingsValue').textContent = cumulativeSavings.toFixed(1);
+
                             
                             // Show final summary after last match
                             if (index === data.matches.length - 1) {
@@ -742,7 +752,7 @@ HOME_PAGE = """
                 html += '<span class="match-score ' + confidenceClass + '">' + match.match_score + '% Match</span>';
                 html += '<span class="confidence-indicator">' + confidenceText + '</span>';
                 html += '</div>';
-                html += '<span class="savings-badge">₹' + match.estimated_savings + 'L saved</span>';
+
                 html += '</div>';
                 
                 html += '<h3>' + (index + 1) + '. ' + match.name + ' <span class="stars">' + stars + '</span></h3>';
