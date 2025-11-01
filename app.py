@@ -904,8 +904,8 @@ HOME_PAGE = """
                 
                 // Add Accept/Reject buttons and status
                 html += '<div class="match-actions">';
-                html += '<button class="btn-accept" onclick="acceptMatch(\'' + project.project_name + '\', \'' + match.name + '\')">✅ Accept Match</button>';
-                html += '<button class="btn-reject" onclick="showRejectModal(\'' + project.project_name + '\', \'' + match.name + '\')">❌ Reject Match</button>';
+                html += '<button class="btn-accept" onclick="acceptMatch(&quot;' + project.project_name + '&quot;, &quot;' + match.name + '&quot;)">✅ Accept Match</button>';
+                html += '<button class="btn-reject" onclick="showRejectModal(&quot;' + project.project_name + '&quot;, &quot;' + match.name + '&quot;)">❌ Reject Match</button>';
                 html += '</div>';
                 html += '<div id="status-' + index + '" class="match-status"></div>';
                 
@@ -926,7 +926,7 @@ HOME_PAGE = """
                             let html = '❌ REJECTED';
                             if (data.hours_left > 0) {
                                 html += ' - ' + data.hours_left + ' hours left to reconsider';
-                                html += '<br><button class="btn-accept" onclick="reconsiderMatch(\'' + project.project_name + '\', \'' + match.name + '\')">🔄 Reconsider This Match</button>';
+                                html += '<br><button class="btn-accept" onclick="reconsiderMatch(&quot;' + project.project_name + '&quot;, &quot;' + match.name + '&quot;)">🔄 Reconsider This Match</button>';
                             } else {
                                 html += ' - FINAL (24 hours expired)';
                             }
