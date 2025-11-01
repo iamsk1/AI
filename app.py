@@ -1,10 +1,12 @@
 import pandas as pd
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from flask import Flask, jsonify, render_template_string
+from flask import Flask, jsonify, render_template_string, request
 import os
 import time
 import random
+from datetime import datetime, timedelta
+import csv
 
 # --- 1. Data Loading and AI Model Initialization ---
 
@@ -24,6 +26,13 @@ employee_embeddings = model.encode(employee_skills_list)
 project_skills_list = projects_df["required_skills"].tolist()
 project_embeddings = model.encode(project_skills_list)
 print("Embeddings generated successfully!")
+
+# Initialize match decisions CSV file
+MATCH_DECISIONS_FILE = 'match_decisions.csv'
+if not os.path.exists(MATCH_DECISIONS_FILE):
+    with open(MATCH_DECISIONS_FILE, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['project_name', 'employee_name', 'status', 'reason', 'details', 'timestamp'])
 
 # --- 2. Core Matching Logic ---
 
@@ -490,6 +499,124 @@ HOME_PAGE = """
                 grid-template-columns: 1fr;
             }
         }
+        
+        /* Accept/Reject Buttons */
+        .match-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn-accept, .btn-reject {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-accept {
+            background: #10b981;
+            color: white;
+        }
+        .btn-accept:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+        .btn-reject {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-reject:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+        .match-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status-accepted {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status-rejected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .status-reconsidered {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 0;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .modal-header {
+            background: #ef4444;
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .modal-body {
+            padding: 20px;
+        }
+        .modal-body label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        .modal-body select, .modal-body textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .modal-body textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .modal-footer {
+            padding: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .modal-btn-primary {
+            background: #ef4444;
+            color: white;
+        }
+        .modal-btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -622,7 +749,7 @@ HOME_PAGE = """
         }
         
         // Load executive summary on page load with animated counters
-        window.onload = function() {
+        window.addEventListener('load', function() {
             fetch('/api/executive-summary')
                 .then(response => response.json())
                 .then(data => {
@@ -632,7 +759,7 @@ HOME_PAGE = """
                     animateCounter(document.getElementById('clientSatisfaction'), data.client_satisfaction, '%');
                     animateCounter(document.getElementById('benchReduction'), data.bench_reduction, '%');
                 });
-        };
+        });
 
         // Enhancement 5: Demo Mode Function
         function runDemoMode() {
@@ -775,12 +902,130 @@ HOME_PAGE = """
                 });
                 html += '</div>';
                 
+                // Add Accept/Reject buttons and status
+                html += '<div class="match-actions">';
+                html += '<button class="btn-accept" onclick="acceptMatch(\'' + project.project_name + '\', \'' + match.name + '\')">✅ Accept Match</button>';
+                html += '<button class="btn-reject" onclick="showRejectModal(\'' + project.project_name + '\', \'' + match.name + '\')">❌ Reject Match</button>';
                 html += '</div>';
+                html += '<div id="status-' + index + '" class="match-status"></div>';
+                
+                html += '</div>';
+            });
+            
+            // Check status for each match
+            matches.forEach((match, index) => {
+                fetch('/api/match-status/' + project.project_name + '/' + match.name)
+                    .then(response => response.json())
+                    .then(data => {
+                        const statusDiv = document.getElementById('status-' + index);
+                        if (data.status === 'accepted') {
+                            statusDiv.className = 'match-status status-accepted';
+                            statusDiv.innerHTML = '✅ ACCEPTED';
+                        } else if (data.status === 'rejected') {
+                            statusDiv.className = 'match-status status-rejected';
+                            let html = '❌ REJECTED';
+                            if (data.hours_left > 0) {
+                                html += ' - ' + data.hours_left + ' hours left to reconsider';
+                                html += '<br><button class="btn-accept" onclick="reconsiderMatch(\'' + project.project_name + '\', \'' + match.name + '\')">🔄 Reconsider This Match</button>';
+                            } else {
+                                html += ' - FINAL (24 hours expired)';
+                            }
+                            if (data.reason) html += '<br><small><strong>Reason:</strong> ' + data.reason + '</small>';
+                            statusDiv.innerHTML = html;
+                        } else if (data.status === 'reconsidered') {
+                            statusDiv.className = 'match-status status-reconsidered';
+                            statusDiv.innerHTML = '🔄 RECONSIDERED';
+                        }
+                    });
             });
             
             document.getElementById('resultsContent').innerHTML = html;
         }
+        
+        // Accept/Reject workflow functions
+        let currentRejectData = {};
+        
+        function acceptMatch(projectName, employeeName) {
+            fetch('/api/accept-match', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({project_name: projectName, employee_name: employeeName})
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('✅ ' + data.message);
+                location.reload();
+            });
+        }
+        
+        function showRejectModal(projectName, employeeName) {
+            currentRejectData = {project_name: projectName, employee_name: employeeName};
+            document.getElementById('rejectModal').style.display = 'block';
+        }
+        
+        function closeRejectModal() {
+            document.getElementById('rejectModal').style.display = 'none';
+            document.getElementById('rejectReason').value = '';
+            document.getElementById('rejectDetails').value = '';
+        }
+        
+        function confirmRejection() {
+            const reason = document.getElementById('rejectReason').value;
+            const details = document.getElementById('rejectDetails').value;
+            if (!reason) {
+                alert('⚠️ Please select a reason for rejection');
+                return;
+            }
+            fetch('/api/reject-match', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({...currentRejectData, reason, details})
+            })
+            .then(response => response.json())
+            .then(data => {
+                closeRejectModal();
+                alert('❌ ' + data.message);
+                location.reload();
+            });
+        }
+        
+        function reconsiderMatch(projectName, employeeName) {
+            fetch('/api/reconsider-match', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({project_name: projectName, employee_name: employeeName})
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert('🔄 ' + data.message);
+                location.reload();
+            });
+        }
     </script>
+    
+    <!-- Rejection Modal -->
+    <div id="rejectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">❌ Reject Match</div>
+            <div class="modal-body">
+                <label for="rejectReason">Reason for Rejection: *</label>
+                <select id="rejectReason">
+                    <option value="">-- Select a reason --</option>
+                    <option value="Skills not matching project requirements">Skills not matching project requirements</option>
+                    <option value="Employee not available on required dates">Employee not available on required dates</option>
+                    <option value="Better candidate available">Better candidate available</option>
+                    <option value="Project requirements changed">Project requirements changed</option>
+                    <option value="Other">Other</option>
+                </select>
+                <label for="rejectDetails">Additional Details:</label>
+                <textarea id="rejectDetails" placeholder="Provide any additional context..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" onclick="closeRejectModal()">Cancel</button>
+                <button class="modal-btn modal-btn-primary" onclick="confirmRejection()">Confirm Rejection</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 """
@@ -812,6 +1057,55 @@ def demo_matching():
 def health():
     """Health check endpoint."""
     return jsonify({"status": "healthy", "message": "TCS RMG AI Matching System is running!"})
+
+@app.route("/api/accept-match", methods=["POST"])
+def accept_match():
+    """Accept a match."""
+    data = request.json
+    with open(MATCH_DECISIONS_FILE, 'a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([data['project_name'], data['employee_name'], 'accepted', '', '', datetime.now().isoformat()])
+    return jsonify({"message": "Match accepted successfully!"})
+
+@app.route("/api/reject-match", methods=["POST"])
+def reject_match():
+    """Reject a match with reason."""
+    data = request.json
+    with open(MATCH_DECISIONS_FILE, 'a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([data['project_name'], data['employee_name'], 'rejected', data['reason'], data.get('details', ''), datetime.now().isoformat()])
+    return jsonify({"message": "Match rejected. You have 24 hours to reconsider."})
+
+@app.route("/api/reconsider-match", methods=["POST"])
+def reconsider_match():
+    """Reconsider a rejected match."""
+    data = request.json
+    with open(MATCH_DECISIONS_FILE, 'a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow([data['project_name'], data['employee_name'], 'reconsidered', '', '', datetime.now().isoformat()])
+    return jsonify({"message": "Match reconsidered successfully!"})
+
+@app.route("/api/match-status/<project_name>/<employee_name>")
+def match_status(project_name, employee_name):
+    """Get status of a specific match."""
+    decisions = []
+    if os.path.exists(MATCH_DECISIONS_FILE):
+        with open(MATCH_DECISIONS_FILE, 'r') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if row['project_name'] == project_name and row['employee_name'] == employee_name:
+                    decisions.append(row)
+    if decisions:
+        latest = decisions[-1]
+        if latest['status'] == 'rejected':
+            timestamp = datetime.fromisoformat(latest['timestamp'])
+            hours_left = 24 - (datetime.now() - timestamp).total_seconds() / 3600
+            if hours_left > 0:
+                latest['hours_left'] = round(hours_left, 1)
+            else:
+                latest['hours_left'] = 0
+        return jsonify(latest)
+    return jsonify({"status": "none"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
